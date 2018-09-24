@@ -51,7 +51,7 @@ contract("Subscription Contract", (ACCOUNTS) => {
     const deploySubscriptionContract = async () => {
 
         const instance =
-            await SubscriptionContract.new( USER_1, DAI, 10, PERIOD, .01, { from: OWNER, gas: 40000000 });
+            await SubscriptionContract.new( USER_1, DAI, 10, PERIOD, 0.01, { from: OWNER, gas: 40000000 });
 
         const web3ContractInstance =
             web3.eth.contract(instance.abi).at(instance.address);
@@ -67,37 +67,36 @@ contract("Subscription Contract", (ACCOUNTS) => {
     describe("Create Subscription Contract", () => {
 
 
-      it("should log a new ", async () => {
+      it("should return correct requiredToAddress", async () => {
 
-        console.log("it's the address!", await Subscription.requiredToAddress.call());
-
-        // await expect( Subscription._toAddress.call()).to.eventually.equal(USER_1);
+        await expect(Subscription.requiredToAddress.call()).to.eventually.equal(USER_1);
 
       });
 
-      // it("should return correct topicMetaData", async () => {
-      //
-      //   await expect( liquidForum.topicMetaData.call()).to.eventually.equal(EMPTY_BYTES32_HASH);
-      //
-      // });
-      //
-      // it("should return correct validtopicArray", async () => {
-      //
-      //   await expect( liquidForum.validTopicOptions.call()).to.eventually.bignumber.equal(8);
-      //
-      // });
-      //
-      //
-      // it("should return correct delegationExpiration", async () => {
-      //
-      //   dei = await liquidForum.delegationExpiration.call();
-      //   let expectedDEI = timestamp.add(time, "-1d")
-      //
-      //   // console.log("ExpectedDEI", expectedDEI)
-      //   // console.log("Returned DEI", dei.toNumber());
-      //
-      //   expect(dei.toNumber()).to.be.within(expectedDEI - 2, expectedDEI + 2)
-      // });
+      it("should return correct requiredTokenAddress", async () => {
+
+        await expect(Subscription.requiredTokenAddress.call()).to.eventually.equal(DAI);
+
+      });
+
+      it("should return correct requiredTokenAmount", async () => {
+
+        await expect(Subscription.requiredTokenAmount.call()).to.eventually.bignumber.equal(10);
+
+      });
+
+      it("should return correct requiredPeriodSeconds", async () => {
+
+        await expect(Subscription.requiredPeriodSeconds.call()).to.eventually.bignumber.equal(PERIOD);
+
+      });
+
+      it("should return correct requiredGasPrice", async () => {
+
+        await expect(Subscription.requiredGasPrice.call()).to.eventually.bignumber.equal(.01);
+
+      });
+
     });
 
   //   describe("#resetDelegationExpirationInterval()", () => {
