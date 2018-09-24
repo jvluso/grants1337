@@ -13,16 +13,26 @@ import GrantsList from './components/GrantsList';
 import CreateGrants from './components/CreateGrants';
 import GrantDetails from './components/GrantDetails';
 
-let backendUrl = "http://localhost:10003/"
-if(window.location.href.indexOf("tokensubscription.com")>=0 || window.location.href.indexOf("ethgrants.com")>=0 || )
-{
-  backendUrl = "https://relay.tokensubscription.com/"
+
+let backendUrl = ""
+let setBackendUrl = (network)=>{
+  backendUrl = "http://localhost:10003/"
+  if(network == "Rinkeby"){
+    backendUrl = "https://rinkeby.tokensubscription.com/"
+  }
+  else if(window.location.href.indexOf("tokensubscription.com")>=0 || window.location.href.indexOf("ethgrants.com")>=0)
+  {
+    backendUrl = "https://relay.tokensubscription.com/"
+  }
+
 }
 
 class App extends Component {
   constructor(props) {
     super(props);
+    console.log("Firing up with backendUrl:"+backendUrl)
     this.state = {
+      grantToAddress:"0x0000000000000000000000000000000000000000",
       toAddress:"0x0000000000000000000000000000000000000000",
       author:"0x0000000000000000000000000000000000000000",
       web3: false,
@@ -132,7 +142,7 @@ class App extends Component {
   }
 
 
-  async deployGrantContract(toAddress,tokenName,tokenAmount,timeType,timeAmount,gasPrice,email) {
+  async deployGrantContract(grantToAddress,tokenName,tokenAmount,timeType,timeAmount,gasPrice,email) {
     let {web3,tx,contracts} = this.state
 
     if(!web3){
@@ -141,8 +151,8 @@ class App extends Component {
 
       //requiredToAddress,requiredTokenAddress,requiredTokenAmount,requiredPeriodSeconds,requiredGasPrice
       let requiredToAddress = "0x0000000000000000000000000000000000000000"
-      if(toAddress){
-        requiredToAddress = toAddress
+      if(grantToAddress){
+        requiredToAddress = grantToAddress
       }
 
       let foundToken
@@ -371,11 +381,14 @@ class App extends Component {
             }}
             onUpdate={(state)=>{
              console.log("metamask state update:",state)
-             this.setState({toAddress:state.account},()=>{
-               console.log("TOADDRESS:",this.state.toAddress)
+             this.setState({grantToAddress:state.account},()=>{
+               console.log("grantToAddress:",this.state.grantToAddress)
              })
              if(state.web3Provider) {
                state.web3 = new Web3(state.web3Provider)
+               console.log("WEB3",state)
+               setBackendUrl(state.network)
+               console.log("backendUrl",backendUrl)
                this.setState(state)
              }
             }}
