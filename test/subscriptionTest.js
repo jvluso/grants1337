@@ -51,7 +51,7 @@ contract("Subscription Contract", (ACCOUNTS) => {
     const deploySubscriptionContract = async () => {
 
         const instance =
-            await SubscriptionContract.new( USER_1, DAI, 10, PERIOD, 0.01, { from: OWNER, gas: 40000000 });
+            await SubscriptionContract.new( USER_1, DAI, 10, PERIOD, 1, { from: OWNER, gas: 40000000 });
 
         const web3ContractInstance =
             web3.eth.contract(instance.abi).at(instance.address);
@@ -93,7 +93,7 @@ contract("Subscription Contract", (ACCOUNTS) => {
 
       it("should return correct requiredGasPrice", async () => {
 
-        await expect(Subscription.requiredGasPrice.call()).to.eventually.bignumber.equal(.01);
+        await expect(Subscription.requiredGasPrice.call()).to.eventually.bignumber.equal(1);
 
       });
 
