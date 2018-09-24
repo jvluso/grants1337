@@ -41,6 +41,9 @@ contract("Subscription Contract", (ACCOUNTS) => {
     const USER_3 = ACCOUNTS[3];
 
     const PERIOD = 2592000;
+    const PAYMENT = 10;
+    const GASPRICE = 1;
+
 
     const DAI = '0x89d24a6b4ccb1b6faa2625fe562bdd9a23260359';
 
@@ -51,7 +54,7 @@ contract("Subscription Contract", (ACCOUNTS) => {
     const deploySubscriptionContract = async () => {
 
         const instance =
-            await SubscriptionContract.new( USER_1, DAI, 10, PERIOD, 1, { from: OWNER, gas: 40000000 });
+            await SubscriptionContract.new( USER_1, DAI, PAYMENT, PERIOD, GASPRICE, { from: OWNER, gas: 40000000 });
 
         const web3ContractInstance =
             web3.eth.contract(instance.abi).at(instance.address);
@@ -81,7 +84,7 @@ contract("Subscription Contract", (ACCOUNTS) => {
 
       it("should return correct requiredTokenAmount", async () => {
 
-        await expect(Subscription.requiredTokenAmount.call()).to.eventually.bignumber.equal(10);
+        await expect(Subscription.requiredTokenAmount.call()).to.eventually.bignumber.equal(PAYMENT);
 
       });
 
@@ -93,11 +96,28 @@ contract("Subscription Contract", (ACCOUNTS) => {
 
       it("should return correct requiredGasPrice", async () => {
 
-        await expect(Subscription.requiredGasPrice.call()).to.eventually.bignumber.equal(1);
+        await expect(Subscription.requiredGasPrice.call()).to.eventually.bignumber.equal(GASPRICE);
 
       });
 
     });
+
+    describe("Generate Subscription Hash", () => {
+
+
+      it("should return correct Subscription Hash", async () => {
+
+        // we use 'result' because the contract address is different each test, and result allow us to see if the subscriptionHash is reproduceable
+        let result = await Subscription.getSubscriptionHash.call(USER_2, USER_1, DAI, PAYMENT, PERIOD, GASPRICE)
+
+        await expect(Subscription.getSubscriptionHash.call(USER_2, USER_1, DAI, PAYMENT, PERIOD, GASPRICE)).to.eventually.equal(result);
+
+      });
+
+
+
+    });
+
 
   //   describe("#resetDelegationExpirationInterval()", () => {
   //
