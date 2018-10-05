@@ -353,9 +353,10 @@ app.get('/abi/:address', (req, res) => {
 app.post('/saveSubscription', (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   console.log("/saveSubscription",req.body)
-  let account = web3.eth.accounts.recover(req.body.subscriptionHash,req.body.signature)////instead of trusting the hash you pass them you should really go get it yourself once the parts look good
+  console.log('subHash', req.body.postData.subscriptionHash);
+  let account = web3.eth.accounts.recover(req.body.postData.subscriptionHash,req.body.postData.signature)////instead of trusting the hash you pass them you should really go get it yourself once the parts look good
   console.log("RECOVERED:",account)
-  if(account.toLowerCase()==req.body.parts[0].toLowerCase()){
+  if(account.toLowerCase()==req.body.postData.parts[0].toLowerCase()){
     console.log("Correct sig... relay subscription to contract... might want more filtering here, but just blindly do it for now")
     redis.get(subscriptionListKey, function (err, result) {
       let subscriptions
@@ -364,13 +365,13 @@ app.post('/saveSubscription', (req, res) => {
       }catch(e){contracts = []}
       if(!subscriptions) subscriptions = []
     //  console.log("current subscriptions:",subscriptions)
-      subscriptions.push(req.body)
+      subscriptions.push(req.body.postData)
     //  console.log("saving subscriptions:",subscriptions)
       redis.set(subscriptionListKey,JSON.stringify(subscriptions),'EX', 60 * 60 * 24 * 7);
     });
   }
   res.set('Content-Type', 'application/json');
-  res.end(JSON.stringify({subscriptionHash:req.body.subscriptionHash}));
+  res.end(JSON.stringify({subscriptionHash:req.body.postData.subscriptionHash}));
 
   if(NETWORK==1){
     twilioClient.messages.create({
