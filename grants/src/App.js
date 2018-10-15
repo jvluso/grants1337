@@ -192,7 +192,7 @@ class App extends Component {
       let requiredGasPrice=0
       if(tokenAmount && foundToken){
         //don't forget decimals.. you do a number * (10**##DECIMALS##)
-        requiredTokenAmount = tokenAmount * (10**foundToken.decimals)
+        requiredTokenAmount = tokenAmount * (10**foundToken.decimals) 
         if(gasPrice && foundToken){
           //don't forget decimals.. you do a number * (10**##DECIMALS##)
           requiredGasPrice = gasPrice * (10**foundToken.decimals)

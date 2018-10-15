@@ -156,10 +156,10 @@ module.exports = {
         result = await clevis("sendTo","0.1","0","0x55ffbcd5f80a7e22660a3b564447a0c1d5396a5c")///<<<-------- change this to your metamask accounts
 
         printTxResult(result)
-        result = await clevis("sendTo","0.1","0","0x707912a400af1cb2d00ffad766d8a675b8dce504")///<<<-------- change this to your metamask accounts
+        result = await clevis("sendTo","0.1","0","0x43c7f23008563b02c206ecebdd4147fff9748346")///<<<-------- change this to your metamask accounts
 
         printTxResult(result)
-        result = await clevis("sendTo","0.1","0","0xd402fc82c418923453377a431a168e21e1425a16")///<<<-------- change this to your metamask accounts
+        result = await clevis("sendTo","0.1","0","0x47316df453e8c9f7c942f5dcbfdf66d518d61f2d")///<<<-------- change this to your metamask accounts
 
 
 
@@ -171,9 +171,9 @@ module.exports = {
         result = await clevis("contract","mint","WasteCoin","3","0x5f19cefc9c9d1bc63f9e4d4780493ff5577d238b","100000000000000000000")
 
         printTxResult(result)
-        result = await clevis("contract","mint","WasteCoin","3","0x34aa3f359a9d614239015126635ce7732c18fdf3","100000000000000000000")
+        result = await clevis("contract","mint","WasteCoin","3","0xfc0295b29200e99c2f6ad928dc08f71fd6e32f61","100000000000000000000")
         printTxResult(result)
-        result = await clevis("contract","mint","WasteCoin","3","0xd402fc82c418923453377a431a168e21e1425a16","100000000000000000000")
+        result = await clevis("contract","mint","WasteCoin","3","0x3fb382e765ee5ab1c62cdd06f7a3df16b25063b1","100000000000000000000")
 
 
 

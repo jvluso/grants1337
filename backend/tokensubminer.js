@@ -354,8 +354,10 @@ app.post('/saveSubscription', (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   console.log("/saveSubscription",req.body)
   console.log('subHash', req.body.postData.subscriptionHash);
+  console.log('signature:', req.body.postData.signature);
   let account = web3.eth.accounts.recover(req.body.postData.subscriptionHash,req.body.postData.signature)////instead of trusting the hash you pass them you should really go get it yourself once the parts look good
   console.log("RECOVERED:",account)
+  console.lo;
   if(account.toLowerCase()==req.body.postData.parts[0].toLowerCase()){
     console.log("Correct sig... relay subscription to contract... might want more filtering here, but just blindly do it for now")
     redis.get(subscriptionListKey, function (err, result) {

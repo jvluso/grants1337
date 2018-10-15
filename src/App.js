@@ -1,4 +1,4 @@
-simport React, { Component } from 'react';
+import React, { Component } from 'react';
 import './App.css';
 import { Metamask, Gas, ContractLoader, Transactions, Button, Scaler } from "dapparatus"
 import Web3 from 'web3';

@@ -51,7 +51,7 @@ contract("Subscription Contract", (ACCOUNTS) => {
 
     const TX_DEFAULTS = { from: OWNER, gas: 4000000 };
 
-    const deploySubscriptionContract = async () => {
+    const deployContracts = async () => {
 
         const instance =
             await SubscriptionContract.new( USER_1, DAI, PAYMENT, PERIOD, GASPRICE, { from: OWNER, gas: 40000000 });
@@ -65,7 +65,7 @@ contract("Subscription Contract", (ACCOUNTS) => {
     };
 
 
-    before(deploySubscriptionContract);
+    before(deployContracts);
 
     describe("Create Subscription Contract", () => {
 
