@@ -239,7 +239,7 @@ contract Subscription {
         require( requiredGasPrice == 0 || gasPrice == requiredGasPrice );
 
         //increment the timestamp by the period so it wont be valid until then
-        nextValidTimestamp[subscriptionHash] = block.timestamp.add(periodSeconds);
+        nextValidTimestamp[subscriptionHash] = nextValidTimestamp[subscriptionHash].add(periodSeconds);
 
         //check to see if this nonce is larger than the current count and we'll set that for this 'from'
         if(nonce > extraNonce[from]){

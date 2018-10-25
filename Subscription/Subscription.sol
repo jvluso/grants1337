@@ -62,6 +62,16 @@ contract Subscription {
         uint256 nonce // to allow multiple subscriptions with the same parameters
     );
 
+    event CancelSubscription(
+        address indexed from, //the subscriber
+        address indexed to, //the publisher
+        address tokenAddress, //the token address paid to the publisher
+        uint256 tokenAmount, //the token amount paid to the publisher
+        uint256 periodSeconds, //the period in seconds between payments
+        uint256 gasPrice, //the amount of tokens to pay relayer (0 for free)
+        uint256 nonce // to allow multiple subscriptions with the same parameters
+    );
+
     constructor(
         address _toAddress,
         address _tokenAddress,
@@ -89,6 +99,9 @@ contract Subscription {
         view
         returns (bool)
     {
+        if(nextValidTimestamp[subscriptionHash]==uint256(-1)){
+          return false;
+        }
         return (block.timestamp <=
                 nextValidTimestamp[subscriptionHash].add(gracePeriodSeconds)
         );
@@ -158,7 +171,13 @@ contract Subscription {
         address signer = getSubscriptionSigner(subscriptionHash, signature);
         uint256 allowance = ERC20(tokenAddress).allowance(from, address(this));
         uint256 balance = ERC20(tokenAddress).balanceOf(from);
+
         return (
+            ( requiredToAddress == address(0) || to == requiredToAddress ) &&
+            ( requiredTokenAddress == address(0) || tokenAddress == requiredTokenAddress ) &&
+            ( requiredTokenAmount == 0 || tokenAmount == requiredTokenAmount ) &&
+            ( requiredPeriodSeconds == 0 || periodSeconds == requiredPeriodSeconds ) &&
+            ( requiredGasPrice == 0 || gasPrice == requiredGasPrice ) &&
             signer == from &&
             from != to &&
             block.timestamp >= nextValidTimestamp[subscriptionHash] &&
@@ -191,9 +210,16 @@ contract Subscription {
         //the signature must be valid
         require(signer == from, "Invalid Signature for subscription cancellation");
 
+        //make sure it's the subscriber
+        require(from == msg.sender, 'msg.sender is not the subscriber');
+
         //nextValidTimestamp should be a timestamp that will never
         //be reached during the brief window human existence
         nextValidTimestamp[subscriptionHash]=uint256(-1);
+
+        emit CancelSubscription(
+            from, to, tokenAddress, tokenAmount, periodSeconds, gasPrice, nonce
+        );
 
         return true;
     }
@@ -247,7 +273,14 @@ contract Subscription {
         }
 
         // now, let make the transfer from the subscriber to the publisher
+        uint256 startingBalance = ERC20(tokenAddress).balanceOf(to);
         ERC20(tokenAddress).transferFrom(from,to,tokenAmount);
+        require(
+          (startingBalance+tokenAmount) == ERC20(tokenAddress).balanceOf(to),
+          "ERC20 Balance did not change correctly"
+        );
+
+
         require(
             checkSuccess(),
             "Subscription::executeSubscription TransferFrom failed"
@@ -318,5 +351,19 @@ contract Subscription {
         }
 
         return returnValue != 0;
+    }
+
+    //we would like a way for the author to completly destroy the subscription
+    // contract to prevent further transfers
+    function endContract()
+        external
+    {
+      require(msg.sender==author);
+      selfdestruct(author);
+    }
+
+    // let's go ahead and revert any ETH send directly to the contract too
+    function () public payable {
+       revert ();
     }
 }

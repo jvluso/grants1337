@@ -221,7 +221,7 @@ class App extends Component {
 
       this.setState({deployingGrantContract:true})
 
-      tx(contracts.Subscription._contract.deploy({data:code,arguments:args}),1000000,(receipt)=>{
+      tx(contracts.Subscription._contract.deploy({data:code,arguments:args}),1500000,(receipt)=>{
         console.log("~~~~~~ DEPLOY FROM DAPPARATUS:",receipt)
         if(receipt.contractAddress){
           console.log("CONTRACT DEPLOYED:",receipt.contractAddress)
@@ -365,6 +365,21 @@ class App extends Component {
             console.log("Transaction Receipt",transaction,receipt)
           }}
         />
+      )
+    }else{
+      extraRoutes = (
+        <div>
+          <Route path="/create/:id?" render={(props) => {
+            return (
+              <div style={{padding:100}}><h2>Please Unlock MetaMask</h2></div>
+            )
+          }} />
+          <Route path="/view/:id" render={(props) => {
+            return (
+              <div style={{padding:100}}><h2>Please Unlock MetaMask</h2></div>
+            )
+          }} />
+        </div>
       )
     }
     return (
