@@ -47,7 +47,7 @@ contract("Subscription Contract", (ACCOUNTS) => {
 
     const DAI = '0x89d24a6b4ccb1b6faa2625fe562bdd9a23260359';
 
-    const NULL_ADDRESS = "`0x0000000000000000000000000000000000000000`";
+    const NULL_ADDRESS = "0x0000000000000000000000000000000000000000`";
 
     const TX_DEFAULTS = { from: OWNER, gas: 4000000 };
 

@@ -33,6 +33,7 @@ contract Subscription {
 
     //who deploys the contract
     address public author;
+    uint8 public contractVersion;
 
     // the publisher may optionally deploy requirements for the subscription
     // so only meta transactions that match the requirements can be relayed
@@ -41,6 +42,7 @@ contract Subscription {
     uint256 public requiredTokenAmount;
     uint256 public requiredPeriodSeconds;
     uint256 public requiredGasPrice;
+
 
     // similar to a nonce that avoids replay attacks this allows a single execution
     // every x seconds for a given subscription
@@ -62,12 +64,23 @@ contract Subscription {
         uint256 nonce // to allow multiple subscriptions with the same parameters
     );
 
+    event CancelSubscription(
+        address indexed from, //the subscriber
+        address indexed to, //the publisher
+        address tokenAddress, //the token address paid to the publisher
+        uint256 tokenAmount, //the token amount paid to the publisher
+        uint256 periodSeconds, //the period in seconds between payments
+        uint256 gasPrice, //the amount of tokens to pay relayer (0 for free)
+        uint256 nonce // to allow multiple subscriptions with the same parameters
+    );
+
     constructor(
         address _toAddress,
         address _tokenAddress,
         uint256 _tokenAmount,
         uint256 _periodSeconds,
-        uint256 _gasPrice
+        uint256 _gasPrice,
+        uint8 _version
     ) public {
         requiredToAddress=_toAddress;
         requiredTokenAddress=_tokenAddress;
@@ -75,6 +88,7 @@ contract Subscription {
         requiredPeriodSeconds=_periodSeconds;
         requiredGasPrice=_gasPrice;
         author=msg.sender;
+        contractVersion=_version;
     }
 
     // this is used by external smart contracts to verify on-chain that a
@@ -89,6 +103,9 @@ contract Subscription {
         view
         returns (bool)
     {
+        if(nextValidTimestamp[subscriptionHash]==uint256(-1)){
+          return false;
+        }
         return (block.timestamp <=
                 nextValidTimestamp[subscriptionHash].add(gracePeriodSeconds)
         );
@@ -109,6 +126,14 @@ contract Subscription {
         view
         returns (bytes32)
     {
+        // if there are requirements from the deployer, let's make sure
+        // those are met exactly
+        require( requiredToAddress == address(0) || to == requiredToAddress, "requiredToAddress Failure" );
+        require( requiredTokenAddress == address(0) || tokenAddress == requiredTokenAddress, "requiredTokenAddress Failure"  );
+        require( requiredTokenAmount == 0 || tokenAmount == requiredTokenAmount, "requiredTokenAmount Failure"  );
+        require( requiredPeriodSeconds == 0 || periodSeconds == requiredPeriodSeconds, "requiredPeriodSeconds Failure"  );
+        require( requiredGasPrice == 0 || gasPrice == requiredGasPrice, "requiredGasPrice Failure"  );
+
         return keccak256(
             abi.encodePacked(
                 byte(0x19),
@@ -148,7 +173,7 @@ contract Subscription {
         uint256 nonce,// to allow multiple subscriptions with the same parameters
         bytes signature //proof the subscriber signed the meta trasaction
     )
-        external
+        public
         view
         returns (bool)
     {
@@ -158,6 +183,7 @@ contract Subscription {
         address signer = getSubscriptionSigner(subscriptionHash, signature);
         uint256 allowance = ERC20(tokenAddress).allowance(from, address(this));
         uint256 balance = ERC20(tokenAddress).balanceOf(from);
+
         return (
             signer == from &&
             from != to &&
@@ -191,9 +217,16 @@ contract Subscription {
         //the signature must be valid
         require(signer == from, "Invalid Signature for subscription cancellation");
 
+        //make sure it's the subscriber
+        require(from == msg.sender, 'msg.sender is not the subscriber');
+
         //nextValidTimestamp should be a timestamp that will never
         //be reached during the brief window human existence
         nextValidTimestamp[subscriptionHash]=uint256(-1);
+
+        emit CancelSubscription(
+            from, to, tokenAddress, tokenAmount, periodSeconds, gasPrice, nonce
+        );
 
         return true;
     }
@@ -213,33 +246,15 @@ contract Subscription {
         public
         returns (bool success)
     {
-        // make sure the subscription is valid and ready
-        // pulled this out so I have the hash, should be exact code as "isSubscriptionReady"
         bytes32 subscriptionHash = getSubscriptionHash(
             from, to, tokenAddress, tokenAmount, periodSeconds, gasPrice, nonce
         );
-        address signer = getSubscriptionSigner(subscriptionHash, signature);
 
-        //make sure they aren't sending to themselves
-        require(to != from, "Can not send to the from address");
-        //the signature must be valid
-        require(signer == from, "Invalid Signature");
-        //timestamp must be equal to or past the next period
-        require(
-            block.timestamp >= nextValidTimestamp[subscriptionHash],
-            "Subscription is not ready"
-        );
-
-        // if there are requirements from the deployer, let's make sure
-        // those are met exactly
-        require( requiredToAddress == address(0) || to == requiredToAddress );
-        require( requiredTokenAddress == address(0) || tokenAddress == requiredTokenAddress );
-        require( requiredTokenAmount == 0 || tokenAmount == requiredTokenAmount );
-        require( requiredPeriodSeconds == 0 || periodSeconds == requiredPeriodSeconds );
-        require( requiredGasPrice == 0 || gasPrice == requiredGasPrice );
+        // make sure the subscription is valid and ready
+        require( isSubscriptionReady(from, to, tokenAddress, tokenAmount, periodSeconds, gasPrice, nonce, signature), "Subscription is not ready or conditions of transction are not met" );
 
         //increment the timestamp by the period so it wont be valid until then
-        nextValidTimestamp[subscriptionHash] = nextValidTimestamp[subscriptionHash].add(periodSeconds);
+        nextValidTimestamp[subscriptionHash] = block.timestamp.add(periodSeconds);
 
         //check to see if this nonce is larger than the current count and we'll set that for this 'from'
         if(nonce > extraNonce[from]){
@@ -247,11 +262,18 @@ contract Subscription {
         }
 
         // now, let make the transfer from the subscriber to the publisher
+        uint256 startingBalance = ERC20(tokenAddress).balanceOf(to);
         ERC20(tokenAddress).transferFrom(from,to,tokenAmount);
         require(
-            checkSuccess(),
-            "Subscription::executeSubscription TransferFrom failed"
+          (startingBalance+tokenAmount) == ERC20(tokenAddress).balanceOf(to),
+          "ERC20 Balance did not change correctly"
         );
+
+        require(
+          checkSuccess(),
+          "Subscription::executeSubscription TransferFrom failed"
+          );
+
 
         emit ExecuteSubscription(
             from, to, tokenAddress, tokenAmount, periodSeconds, gasPrice, nonce
@@ -318,5 +340,19 @@ contract Subscription {
         }
 
         return returnValue != 0;
+    }
+
+    //we would like a way for the author to completly destroy the subscription
+    // contract to prevent further transfers
+    function endContract()
+        external
+    {
+      require(msg.sender==author);
+      selfdestruct(author);
+    }
+
+    // let's go ahead and revert any ETH sent directly to the contract
+    function () public payable {
+       revert ();
     }
 }

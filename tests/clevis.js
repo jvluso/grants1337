@@ -171,9 +171,9 @@ module.exports = {
         result = await clevis("contract","mint","WasteCoin","3","0x5f19cefc9c9d1bc63f9e4d4780493ff5577d238b","100000000000000000000")
 
         printTxResult(result)
-        result = await clevis("contract","mint","WasteCoin","3","0x18f430638cd5d1adc16cb2966d535e9b31fcf3d7","100000000000000000000")
+        result = await clevis("contract","mint","WasteCoin","3","0x5649cfcc583e380c55fC045Bb112e90FC0F8dfef","1000000000000000000000")
         printTxResult(result)
-        result = await clevis("contract","mint","WasteCoin","3","0x840cc792b7c7447f54664df2e76cc2acda041df8","100000000000000000000")
+        result = await clevis("contract","mint","WasteCoin","3","0x68694Eb777a88041f442E7607f0431B4159dCC93","1000000000000000000000")
 
 
 

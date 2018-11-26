@@ -5,8 +5,8 @@
   "deploygas": 5500000,
   "xfergas": 1300000,
   "DEBUG": true,
-  "USE_INFURA": false,
-  "ROOT_FOLDER": "/Users/austingriffith/tokensubscription.com",
+  "USE_INFURA": true,
+  "ROOT_FOLDER": "/Users/kevinseagraves/Desktop/gitcoin/grants1337",
   "CRA_FOLDER": "./src",
   "TESTS_FOLDER": "tests",
   "CONTRACTS_FOLDER": "."
