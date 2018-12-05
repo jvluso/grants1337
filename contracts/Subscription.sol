@@ -33,7 +33,6 @@ contract Subscription {
 
     //who deploys the contract
     address public author;
-    uint8 public contractVersion;
 
     // the publisher may optionally deploy requirements for the subscription
     // so only meta transactions that match the requirements can be relayed
@@ -88,7 +87,6 @@ contract Subscription {
         requiredPeriodSeconds=_periodSeconds;
         requiredGasPrice=_gasPrice;
         author=msg.sender;
-        contractVersion=_version;
     }
 
     // this is used by external smart contracts to verify on-chain that a
