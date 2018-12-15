@@ -48,13 +48,19 @@ contract Subscription {
     // subscriptionHash  => next valid block number
     mapping(bytes32 => uint256) public nextValidTimestamp;
 
+    //we'll use a nonce for each from but because transactions can go through
+    //multiple times, we allow anything but users can use this as a signal for
+    //uniqueness
+    mapping(address => uint256) public extraNonce;
+
     event ExecuteSubscription(
         address indexed from, //the subscriber
         address indexed to, //the publisher
         address tokenAddress, //the token address paid to the publisher
         uint256 tokenAmount, //the token amount paid to the publisher
         uint256 periodSeconds, //the period in seconds between payments
-        uint256 gasPrice //the amount of tokens to pay relayer (0 for free)
+        uint256 gasPrice, //the amount of tokens to pay relayer (0 for free)
+        uint256 nonce // to allow multiple subscriptions with the same parameters
     );
 
     event CancelSubscription(
@@ -63,7 +69,8 @@ contract Subscription {
         address tokenAddress, //the token address paid to the publisher
         uint256 tokenAmount, //the token amount paid to the publisher
         uint256 periodSeconds, //the period in seconds between payments
-        uint256 gasPrice //the amount of tokens to pay relayer (0 for free)
+        uint256 gasPrice, //the amount of tokens to pay relayer (0 for free)
+        uint256 nonce // to allow multiple subscriptions with the same parameters
     );
 
     constructor(
@@ -110,7 +117,8 @@ contract Subscription {
         address tokenAddress, //the token address paid to the publisher
         uint256 tokenAmount, //the token amount paid to the publisher
         uint256 periodSeconds, //the period in seconds between payments
-        uint256 gasPrice //the amount of tokens or eth to pay relayer (0 for free)
+        uint256 gasPrice, //the amount of tokens or eth to pay relayer (0 for free)
+        uint256 nonce // to allow multiple subscriptions with the same parameters
     )
         public
         view
@@ -159,6 +167,7 @@ contract Subscription {
         uint256 tokenAmount, //the token amount paid to the publisher
         uint256 periodSeconds, //the period in seconds between payments
         uint256 gasPrice, //the amount of the token to incentivize the relay network
+        uint256 nonce,// to allow multiple subscriptions with the same parameters
         bytes signature //proof the subscriber signed the meta trasaction
     )
         public
@@ -166,7 +175,7 @@ contract Subscription {
         returns (bool)
     {
         bytes32 subscriptionHash = getSubscriptionHash(
-            from, to, tokenAddress, tokenAmount, periodSeconds, gasPrice
+            from, to, tokenAddress, tokenAmount, periodSeconds, gasPrice, nonce
         );
         address signer = getSubscriptionSigner(subscriptionHash, signature);
         uint256 allowance = ERC20(tokenAddress).allowance(from, address(this));
@@ -191,13 +200,14 @@ contract Subscription {
         uint256 tokenAmount, //the token amount paid to the publisher
         uint256 periodSeconds, //the period in seconds between payments
         uint256 gasPrice, //the amount of tokens or eth to pay relayer (0 for free)
+        uint256 nonce, //to allow multiple subscriptions with the same parameters
         bytes signature //proof the subscriber signed the meta trasaction
     )
         external
         returns (bool success)
     {
         bytes32 subscriptionHash = getSubscriptionHash(
-            from, to, tokenAddress, tokenAmount, periodSeconds, gasPrice
+            from, to, tokenAddress, tokenAmount, periodSeconds, gasPrice, nonce
         );
         address signer = getSubscriptionSigner(subscriptionHash, signature);
 
@@ -212,7 +222,7 @@ contract Subscription {
         nextValidTimestamp[subscriptionHash]=uint256(-1);
 
         emit CancelSubscription(
-            from, to, tokenAddress, tokenAmount, periodSeconds, gasPrice
+            from, to, tokenAddress, tokenAmount, periodSeconds, gasPrice, nonce
         );
 
         return true;
@@ -227,20 +237,26 @@ contract Subscription {
         uint256 tokenAmount, //the token amount paid to the publisher
         uint256 periodSeconds, //the period in seconds between payments
         uint256 gasPrice, //the amount of tokens or eth to pay relayer (0 for free)
+        uint256 nonce, // to allow multiple subscriptions with the same parameters
         bytes signature //proof the subscriber signed the meta trasaction
     )
         public
         returns (bool success)
     {
         bytes32 subscriptionHash = getSubscriptionHash(
-            from, to, tokenAddress, tokenAmount, periodSeconds, gasPrice
+            from, to, tokenAddress, tokenAmount, periodSeconds, gasPrice, nonce
         );
 
         // make sure the subscription is valid and ready
-        require( isSubscriptionReady(from, to, tokenAddress, tokenAmount, periodSeconds, gasPrice, signature), "Subscription is not ready or conditions of transction are not met" );
+        require( isSubscriptionReady(from, to, tokenAddress, tokenAmount, periodSeconds, gasPrice, nonce, signature), "Subscription is not ready or conditions of transction are not met" );
 
         //increment the timestamp by the period so it wont be valid until then
         nextValidTimestamp[subscriptionHash] = block.timestamp.add(periodSeconds);
+
+        //check to see if this nonce is larger than the current count and we'll set that for this 'from'
+        if(nonce > extraNonce[from]){
+          extraNonce[from] = nonce;
+        }
 
         // now, let make the transfer from the subscriber to the publisher
         uint256 startingBalance = ERC20(tokenAddress).balanceOf(to);
@@ -257,7 +273,7 @@ contract Subscription {
 
 
         emit ExecuteSubscription(
-            from, to, tokenAddress, tokenAmount, periodSeconds, gasPrice
+            from, to, tokenAddress, tokenAmount, periodSeconds, gasPrice, nonce
         );
 
         // it is possible for the subscription execution to be run by a third party
