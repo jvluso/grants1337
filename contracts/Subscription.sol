@@ -32,7 +32,9 @@ contract Subscription {
     using SafeMath for uint256;
 
     //who deploys the contract
-    address public author;
+    address public owner;
+    uint8 public contractVersion;
+
 
     // the publisher may optionally deploy requirements for the subscription
     // so only meta transactions that match the requirements can be relayed
@@ -73,6 +75,11 @@ contract Subscription {
         uint256 nonce // to allow multiple subscriptions with the same parameters
     );
 
+    event ownershipChanged(
+        address oldOwner,
+        address newOwner
+    );
+
     constructor(
         address _toAddress,
         address _tokenAddress,
@@ -86,7 +93,19 @@ contract Subscription {
         requiredTokenAmount=_tokenAmount;
         requiredPeriodSeconds=_periodSeconds;
         requiredGasPrice=_gasPrice;
-        author=msg.sender;
+        owner=msg.sender;
+        contractVersion=_version;
+    }
+
+    // this function allows the owner of the contract to pass the ownership
+    // to another address. The only privilege this conveys is the ability to
+    // call endContract() which destorys the contract and all subscriptions.
+    function changeOwnership(_newOwner)
+      public
+    {
+      require(msg.sender==owner);
+      owner = _newOwner;
+      emit ownershipChanged(msg.sender, owner);
     }
 
     // this is used by external smart contracts to verify on-chain that a
@@ -339,17 +358,17 @@ contract Subscription {
         return returnValue != 0;
     }
 
-    //we would like a way for the author to completly destroy the subscription
+    //we would like a way for the owner to completly destroy the subscription
     // contract to prevent further transfers
     function endContract()
         external
     {
-      require(msg.sender==author);
-      selfdestruct(author);
+      require(msg.sender==owner);
+      selfdestruct(owner);
     }
 
     // let's go ahead and revert any ETH sent directly to the contract
-    function () public payable {
-       revert ();
+    function() public payable {
+       revert();
     }
 }
