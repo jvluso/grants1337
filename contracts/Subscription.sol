@@ -1,11 +1,16 @@
 pragma solidity ^0.4.24;
 
 /*
-  Super Simple Token Subscriptions - https://tokensubscription.com
+  Token Subscriptions With History
 
-  //// Breakin’ Through @ University of Wyoming ////
+  This is an extension of the erc1337 token subscription to allow voting in an aragon vote based on subscription level
 
-  Austin Thomas Griffith - https://austingriffith.com
+  the following should all hold once complete:
+  calling balanceOfAt multiple times for past blocks must always return the same result given the same input
+  calling totalSupplyAt multiple times for past blocks must always return the same result given the same input
+  it should be possible to limit abuse of the grace period by adjusting the constants
+  the sum of all balanceOfAt calls must be less than or equal to the totalSupplyAt in a single previous block
+  after paying a subscription for a period of time, you must have that balance represented for at least that amount of time 
 
   Building on previous works:
     https://github.com/austintgriffith/token-subscription
@@ -25,11 +30,13 @@ pragma solidity ^0.4.24;
 import "openzeppelin-solidity/contracts/cryptography/ECDSA.sol";
 import "openzeppelin-solidity/contracts/math/SafeMath.sol";
 import "openzeppelin-solidity/contracts/token/ERC20/ERC20.sol";
+import "./Checkpoint.sol";
 
 
 contract Subscription {
     using ECDSA for bytes32;
     using SafeMath for uint256;
+    using Checkpoint for Checkpoint.Data;
 
     //who deploys the contract
     address public author;
@@ -41,20 +48,44 @@ contract Subscription {
     uint256 public requiredTokenAmount;
     uint256 public requiredPeriodSeconds;
     uint256 public requiredGasPrice;
+    uint256 public gracePeriodSeconds;
+
+    struct  User {
+        Checkpoint.Data checkpoints;
+        bytes32 activeSubscription;
+    }
+
+    // users keeps track of each user's subscription history
+    mapping(address => User) users;
+
+    // keeps track of the maximum subscriptions into the future
+    mapping(uint => uint) expirations; // timestamp => value of expiring subscriptions
+    Checkpoint.Data maximumSubscriptions;
+    Checkpoint.Data blockNumbers; // timestamp => block number
+    uint lastUpdate;
+
+
+    // similar to a nonce that avoids replay attacks this allows a single execution
+    // every x seconds for a given subscription
+    // subscriptionHash  => next valid block number
+    mapping(bytes32 => uint256) public nextValidTimestamp;
 
     constructor(
         address _toAddress,
         address _tokenAddress,
         uint256 _tokenAmount,
         uint256 _periodSeconds,
-        uint256 _gasPrice
+        uint256 _gasPrice,
+        uint256 _gracePeriodSeconds
     ) public {
         requiredToAddress=_toAddress;
         requiredTokenAddress=_tokenAddress;
         requiredTokenAmount=_tokenAmount;
         requiredPeriodSeconds=_periodSeconds;
         requiredGasPrice=_gasPrice;
+        gracePeriodSeconds=_gracePeriodSeconds;
         author=msg.sender;
+        lastUpdate=block.timestamp-(block.timestamp%_gracePeriodSeconds);
     }
 
     event ExecuteSubscription(
@@ -66,25 +97,21 @@ contract Subscription {
         uint256 gasPrice //the amount of tokens to pay relayer (0 for free)
     );
 
-    // similar to a nonce that avoids replay attacks this allows a single execution
-    // every x seconds for a given subscription
-    // subscriptionHash  => next valid block number
-    mapping(bytes32 => uint256) public nextValidTimestamp;
 
-    // this is used by external smart contracts to verify on-chain that a
+    // this is used in the original subscription contract to verify that a
     // particular subscription is "paid" and "active"
-    // there must be a small grace period added to allow the publisher
-    // or desktop miner to execute
+    // on chain contracts should use isSubscriptionActiveAt to gaurentee 
+    // consistancy.
     function isSubscriptionActive(
         bytes32 subscriptionHash,
-        uint256 gracePeriodSeconds
+        uint256 _gracePeriodSeconds
     )
         external
         view
         returns (bool)
     {
         return (block.timestamp <=
-                nextValidTimestamp[subscriptionHash].add(gracePeriodSeconds)
+                nextValidTimestamp[subscriptionHash].add(_gracePeriodSeconds)
         );
     }
 
@@ -173,6 +200,7 @@ contract Subscription {
         public
         returns (bool success)
     {
+        updateMaximums();
         bytes32 subscriptionHash = getSubscriptionHash(
             from, to, tokenAddress, tokenAmount, periodSeconds, gasPrice
         );
@@ -202,6 +230,8 @@ contract Subscription {
         public
         returns (bool success)
     {
+        updateMaximums();
+        updateUser(from);
         // make sure the subscription is valid and ready
         // pulled this out so I have the hash, should be exact code as "isSubscriptionReady"
         bytes32 subscriptionHash = getSubscriptionHash(
@@ -225,8 +255,14 @@ contract Subscription {
         require( requiredPeriodSeconds == 0 || periodSeconds == requiredPeriodSeconds );
         require( requiredGasPrice == 0 || gasPrice == requiredGasPrice );
 
-        //increment the timestamp by the period so it wont be valid until then
+        // if there is an active subscription, update the maximum expiration for it
+        expirations[expirationTimestamp(nextValidTimestamp[subscriptionHash])] -= users[from].checkpoints.getValueAt(block.number);
         nextValidTimestamp[subscriptionHash] = block.timestamp.add(periodSeconds);
+        expirations[expirationTimestamp(nextValidTimestamp[subscriptionHash])] += tokenAmount;
+        if(users[from].checkpoints.getValueAt(block.number)!=tokenAmount){
+          maximumSubscriptions.insert(block.number,maximumSubscriptions.getValueAt(block.number)+tokenAmount);
+        }
+        users[from].checkpoints.insert(block.number,tokenAmount);
 
         // now, let make the transfer from the subscriber to the publisher
         uint256 startingBalance = ERC20(tokenAddress).balanceOf(to);
@@ -264,4 +300,47 @@ contract Subscription {
 
         return true;
     }
+
+    function updateMaximums() internal {
+        uint expirationCount = 0;
+        while(lastUpdate + gracePeriodSeconds < block.timestamp){
+            lastUpdate = lastUpdate + gracePeriodSeconds;
+            expirationCount += expirations[lastUpdate];
+        }
+        if(expirationCount > 0){
+            maximumSubscriptions.insert(block.number,
+                                        maximumSubscriptions.getValueAt(block.number)-expirationCount);
+            blockNumbers.insert(lastUpdate,block.number);// TODO: should this be block.timestamp?
+        }
+    }
+
+
+    function updateUser(address account) internal {
+        // no update if the user has no expired subscription
+        if(expirationTimestamp(nextValidTimestamp[users[account].activeSubscription]) > block.timestamp ||
+           users[account].checkpoints.getValueAt(block.number) == 0){
+            return;
+        }
+
+        // if it expired do the best you can without shorting them
+        users[account].checkpoints.insert(blockNumbers.getValueAfter(nextValidTimestamp[users[account].activeSubscription]),0);
+
+    }
+
+    function expirationTimestamp(uint timestamp) internal view returns (uint){
+        return timestamp - (timestamp%gracePeriodSeconds) + gracePeriodSeconds;
+        
+    }
+
+    function totalSupplyAt(uint snapshotBlock) public returns(uint supply){
+        updateMaximums();
+        return maximumSubscriptions.getValueAt(snapshotBlock);
+    }
+
+    function balanceOfAt(address account, uint snapshotBlock) public returns(uint supply){
+        updateMaximums();
+        updateUser(account);
+        return users[account].checkpoints.getValueAt(snapshotBlock);
+    }
+
 }
