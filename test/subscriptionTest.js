@@ -38,7 +38,8 @@ contract("Subscription Contract", (ACCOUNTS) => {
 
     const OWNER = ACCOUNTS[0];
     const USER_1 = ACCOUNTS[1];
-    const USER_2 = ACCOUNTS[2];
+    const USER_2 = web3.eth.accounts[0];
+    console.log(web3.eth.accounts[0])
     const USER_3 = ACCOUNTS[3];
 
     const PERIOD = 2592000;
@@ -47,7 +48,7 @@ contract("Subscription Contract", (ACCOUNTS) => {
     const GRACEPERIOD = 10;
 
 
-    const DAI = '0x89d24a6b4ccb1b6faa2625fe562bdd9a23260359';
+    const DAI = '0x2b8c484b08592bcb9085be9b4e5b88f43feaf13d';
 
     const NULL_ADDRESS = "0x0000000000000000000000000000000000000000";
 
@@ -112,7 +113,9 @@ contract("Subscription Contract", (ACCOUNTS) => {
         // we use 'result' because the contract address is different each test, and result allow us to see if the subscriptionHash is reproduceable
         let result = await Subscription.getSubscriptionHash.call(USER_2, USER_1, DAI, PAYMENT, PERIOD, GASPRICE)
 
-        await expect(Subscription.getSubscriptionHash.call(USER_2, USER_1, DAI, PAYMENT, PERIOD, GASPRICE)).to.eventually.equal(result);
+        let sig = web3.eth.sign(USER_2,result);
+
+        await expect(Subscription.validateSignature.call(USER_2, USER_1, DAI, PAYMENT, PERIOD, GASPRICE,sig)).to.eventually.equal(true);
 
       });
 

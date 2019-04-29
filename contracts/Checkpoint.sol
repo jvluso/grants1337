@@ -16,7 +16,7 @@ library Checkpoint {
   function insert(Data storage self, uint from, uint value)
       public
   {
-      require(self.checkpoints[self.checkpoints.length - 1].from< from);
+      require(self.checkpoints.length == 0 || self.checkpoints[self.checkpoints.length - 1].from< from);
       self.checkpoints.push(Point(from,value));
   }
 
