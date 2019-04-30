@@ -48,7 +48,7 @@ contract("Subscription Contract", (ACCOUNTS) => {
     const GRACEPERIOD = 10;
 
 
-    const DAI = '0x2b8c484b08592bcb9085be9b4e5b88f43feaf13d';
+    const DAI = '0x4a5ff41edf09ab390a41d8431b563fe6153729bd';
 
     const NULL_ADDRESS = "0x0000000000000000000000000000000000000000";
 
@@ -115,8 +115,9 @@ contract("Subscription Contract", (ACCOUNTS) => {
 
         let sig = web3.eth.sign(USER_2,result);
 
-        await expect(Subscription.validateSignature.call(USER_2, USER_1, DAI, PAYMENT, PERIOD, GASPRICE,sig)).to.eventually.equal(true);
+        //await Subscription.executeSubscription(USER_2, USER_1, DAI, PAYMENT, PERIOD, GASPRICE,sig);
 
+        //await Subscription.balanceOf.call(USER_2);
       });
 
 

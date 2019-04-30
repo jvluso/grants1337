@@ -50,6 +50,11 @@ contract Subscription {
     uint256 public requiredGasPrice;
     uint256 public gracePeriodSeconds;
 
+    string constant public name = "Subscription";
+    string constant public symbol = "SUB";
+    uint8 constant public decimals = 18;
+    bool constant public transferable = false;
+
     struct  User {
         Checkpoint.Data checkpoints;
         bytes32 activeSubscription;
@@ -216,53 +221,6 @@ contract Subscription {
         return true;
     }
 
-    function validateSignature(
-        address from, //the subscriber
-        address to, //the publisher
-        address tokenAddress, //the token address paid to the publisher
-        uint256 tokenAmount, //the token amount paid to the publisher
-        uint256 periodSeconds, //the period in seconds between payments
-        uint256 gasPrice, //the amount of tokens or eth to pay relayer (0 for free)
-        bytes signature //proof the subscriber signed the meta trasaction
-    )
-        public
-        view
-        returns (bool success)
-    {
-        bytes32 subscriptionHash = getSubscriptionHash(
-            from, to, tokenAddress, tokenAmount, periodSeconds, gasPrice
-        );
-        address signer = getSubscriptionSigner(subscriptionHash, signature);
-        require(signer == from, "Invalid Signature");
-        //timestamp must be equal to or past the next period
-        require(
-            block.timestamp >= nextValidTimestamp[subscriptionHash],
-            "Subscription is not ready"
-        );
-
-        // if there are requirements from the deployer, let's make sure
-        // those are met exactly
-        require( requiredToAddress == address(0) || to == requiredToAddress );
-        require( requiredTokenAddress == address(0) || tokenAddress == requiredTokenAddress );
-        require( requiredTokenAmount == 0 || tokenAmount == requiredTokenAmount );
-        require( requiredPeriodSeconds == 0 || periodSeconds == requiredPeriodSeconds );
-        require( requiredGasPrice == 0 || gasPrice == requiredGasPrice );
-
-        // if there is an active subscription, update the maximum expiration for it
-        expirations[expirationTimestamp(nextValidTimestamp[subscriptionHash])] -= users[from].checkpoints.getValueAt(block.number);
-        nextValidTimestamp[subscriptionHash] = block.timestamp.add(periodSeconds);
-        expirations[expirationTimestamp(nextValidTimestamp[subscriptionHash])] += tokenAmount;
-        if(users[from].checkpoints.getValueAt(block.number)!=tokenAmount){
-          maximumSubscriptions.insert(block.number,maximumSubscriptions.getValueAt(block.number)+tokenAmount);
-        }
-        users[from].checkpoints.insert(block.number,tokenAmount);
-
-        // now, let make the transfer from the subscriber to the publisher
-        uint256 startingBalance = ERC20(tokenAddress).balanceOf(to);
-
-        return true;
-    }
-
     // execute the transferFrom to pay the publisher from the subscriber
     // the subscriber has full control by approving this contract an allowance
     function executeSubscription(
@@ -308,6 +266,7 @@ contract Subscription {
         expirations[expirationTimestamp(nextValidTimestamp[subscriptionHash])] += tokenAmount;
         if(users[from].checkpoints.getValueAt(block.number)!=tokenAmount){
           maximumSubscriptions.insert(block.number,maximumSubscriptions.getValueAt(block.number)+tokenAmount);
+          users[from].activeSubscription=subscriptionHash;
         }
         users[from].checkpoints.insert(block.number,tokenAmount);
 
@@ -377,6 +336,14 @@ contract Subscription {
     function expirationTimestamp(uint timestamp) internal view returns (uint){
         return timestamp - (timestamp%gracePeriodSeconds) + gracePeriodSeconds;
         
+    }
+
+    function balanceOf(address account) public returns(uint supply){
+        return balanceOfAt(account,block.number);
+    }
+
+    function totalSupply() public returns(uint supply){
+        return totalSupplyAt(block.number);
     }
 
     function totalSupplyAt(uint snapshotBlock) public returns(uint supply){
