@@ -1,5 +1,4 @@
 pragma solidity ^0.4.24;
-
 /*
   Token Subscriptions With History
 
@@ -309,7 +308,7 @@ contract Subscription {
 
     function updateMaximums() internal {
         uint expirationCount = 0;
-        while(lastUpdate + gracePeriodSeconds < block.timestamp){
+        while(lastUpdate + gracePeriodSeconds <= block.timestamp){
             lastUpdate = lastUpdate + gracePeriodSeconds;
             expirationCount += expirations[lastUpdate];
         }
@@ -334,12 +333,13 @@ contract Subscription {
     }
 
     function expirationTimestamp(uint timestamp) internal view returns (uint){
+        if(timestamp%gracePeriodSeconds == 0) return timestamp;
         return timestamp - (timestamp%gracePeriodSeconds) + gracePeriodSeconds;
         
     }
 
     function balanceOf(address account) public returns(uint supply){
-        return balanceOfAt(account,block.number);
+        supply = balanceOfAt(account,block.number);
     }
 
     function totalSupply() public returns(uint supply){

@@ -16,8 +16,15 @@ library Checkpoint {
   function insert(Data storage self, uint from, uint value)
       public
   {
-      require(self.checkpoints.length == 0 || self.checkpoints[self.checkpoints.length - 1].from< from);
-      self.checkpoints.push(Point(from,value));
+      if(self.checkpoints.length == 0){
+        self.checkpoints.push(Point(from,value));
+      } 
+      if(self.checkpoints[self.checkpoints.length - 1].from== from){
+        self.checkpoints[self.checkpoints.length - 1].value=value;
+      }
+      if(self.checkpoints[self.checkpoints.length - 1].from< from){
+        self.checkpoints.push(Point(from,value));
+      }
   }
 
   function getValueAt(Data storage self, uint at) constant public returns (uint) {
@@ -48,7 +55,7 @@ library Checkpoint {
     // Shortcut for the actual value
     if (at >= self.checkpoints[self.checkpoints.length-1].from)
       return self.checkpoints[self.checkpoints.length-1].value;
-    if (at < self.checkpoints[0].from) return 0;
+    if (at <= self.checkpoints[0].from) return self.checkpoints[0].value;
 
     // Binary search of the value in the array
     uint min = 0;
@@ -56,11 +63,11 @@ library Checkpoint {
     while (max > min) {
       uint mid = (max + min + 1)/ 2;
       if (self.checkpoints[mid].from<=at) {
-        min = mid+1;
+        min = mid;
       } else {
-        max = mid;
+        max = mid-1;
       }
     }
-    return self.checkpoints[min].value;
+    return self.checkpoints[min+1].value;
   }
 }
