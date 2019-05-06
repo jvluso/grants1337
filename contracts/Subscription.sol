@@ -79,6 +79,12 @@ contract Subscription {
     //uniqueness
     mapping(address => uint256) public extraNonce;
 
+    // we need to keep track of hashes that have been pre-signed by smart contracts
+    // If we allow offline signing there may be issues with the signature being 
+    // frontrun-retracted. This might be worth adding anyway because the relayer can
+    // validate the contract before relaying it.
+    mapping(bytes32 => bool) public presigned;
+
     event ExecuteSubscription(
         address indexed from, //the subscriber
         address indexed to, //the publisher
@@ -124,6 +130,24 @@ contract Subscription {
         uint256 periodSeconds, //the period in seconds between payments
         uint256 gasPrice //the amount of tokens to pay relayer (0 for free)
     );
+
+
+    // this allows smart contracts to create a subscription 
+    function presignHash(
+        address to, //the publisher
+        address tokenAddress, //the token address paid to the publisher
+        uint256 tokenAmount, //the token amount paid to the publisher
+        uint256 periodSeconds, //the period in seconds between payments
+        uint256 gasPrice, //the amount of tokens or eth to pay relayer (0 for free)
+        uint256 nonce // to allow multiple subscriptions with the same parameters
+    )
+        external
+    {
+        presigned[getSubscriptionHash(
+            msg.sender, to, tokenAddress, tokenAmount, periodSeconds, gasPrice, nonce
+        )] = true;
+    }
+
 
 
     // this is used in the original subscription contract to verify that a
@@ -182,15 +206,19 @@ contract Subscription {
     }
 
     //ecrecover the signer from hash and the signature
-    function getSubscriptionSigner(
+    function isValidSignature(
+        address from, //the subscriber
         bytes32 subscriptionHash, //hash of subscription
         bytes signature //proof the subscriber signed the meta trasaction
     )
         public
-        pure
-        returns (address)
+        view 
+        returns (bool)
     {
-        return subscriptionHash.toEthSignedMessageHash().recover(signature);
+        return (
+          presigned[subscriptionHash] ||
+          from == subscriptionHash.toEthSignedMessageHash().recover(signature)
+        );
     }
 
     //check if a subscription is signed correctly and the timestamp is ready for
@@ -212,11 +240,11 @@ contract Subscription {
         bytes32 subscriptionHash = getSubscriptionHash(
             from, to, tokenAddress, tokenAmount, periodSeconds, gasPrice, nonce
         );
-        address signer = getSubscriptionSigner(subscriptionHash, signature);
+        bool isValid = isValidSignature(from,subscriptionHash, signature);
         uint256 allowance = ERC20(tokenAddress).allowance(from, address(this));
         uint256 balance = ERC20(tokenAddress).balanceOf(from);
         return (
-            signer == from &&
+            isValid &&
             from != to &&
             block.timestamp >= nextValidTimestamp[subscriptionHash] &&
             allowance >= tokenAmount.add(gasPrice) &&
