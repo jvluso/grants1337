@@ -45,10 +45,11 @@ contract("Subscription Contract", (ACCOUNTS) => {
     const USER_2 = ACCOUNTS[2];
     const USER_3 = ACCOUNTS[3];
 
-    const PERIOD = 1;
+    const PERIOD = 2;
     const PAYMENT = 10;
     const GASPRICE = 1;
-    const GRACEPERIOD = 2;
+    const GRACEPERIOD = 1;
+    const NONCE = 0;
 
 
 
@@ -122,28 +123,28 @@ contract("Subscription Contract", (ACCOUNTS) => {
 
       it("should complete use flow without errors", async () => {
 
-        let result = await Subscription.getSubscriptionHash.call(USER_2, USER_1, DAI, PAYMENT, PERIOD, GASPRICE)
+        let result = await Subscription.getSubscriptionHash.call(USER_2, USER_1, DAI, PAYMENT, PERIOD, GASPRICE, NONCE)
 
         let sig = web3.eth.sign(USER_2,result);
 
         await ERC20.approve(Subscription.address,PAYMENT * 10000000, {from:USER_2});
 
-        await Subscription.executeSubscription(USER_2, USER_1, DAI, PAYMENT, PERIOD, GASPRICE, sig);
+        await Subscription.executeSubscription(USER_2, USER_1, DAI, PAYMENT, PERIOD, GASPRICE, NONCE, sig);
 
         await expect(Subscription.balanceOf.call(USER_2)).to.eventually.bignumber.equal(PAYMENT);
         await expect(Subscription.totalSupply.call()).to.eventually.bignumber.equal(PAYMENT);
 
-        await sleep(4500);
+        await sleep(5500);
 
         await expect(Subscription.balanceOf.call(USER_2)).to.eventually.bignumber.equal(0);
         await expect(Subscription.totalSupply.call()).to.eventually.bignumber.equal(0);
  
-        await Subscription.executeSubscription(USER_2, USER_1, DAI, PAYMENT, PERIOD, GASPRICE, sig);
+        await Subscription.executeSubscription(USER_2, USER_1, DAI, PAYMENT, PERIOD, GASPRICE, NONCE, sig);
 
         await expect(Subscription.balanceOf.call(USER_2)).to.eventually.bignumber.equal(PAYMENT);
         await expect(Subscription.totalSupply.call()).to.eventually.bignumber.equal(PAYMENT);
 
-        await sleep(4500);
+        await sleep(5500);
 
         await expect(Subscription.balanceOf.call(USER_2)).to.eventually.bignumber.equal(0);
         await expect(Subscription.totalSupply.call()).to.eventually.bignumber.equal(0);
